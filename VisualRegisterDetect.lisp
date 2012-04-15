@@ -5,7 +5,7 @@
   (clear-exp-window)
   (proc-display)) 
 
-(defun do-demo2 (&optional who)
+(defun do-reg-detect (&optional who)
   
   (reset)
   
