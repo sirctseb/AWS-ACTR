@@ -57,7 +57,7 @@
    (goal isa inspect-check state start))
 
 ;; find the location of the image
-(P find-first-image
+(P find-image
    =goal>
       ISA         inspect-check
       state       start
