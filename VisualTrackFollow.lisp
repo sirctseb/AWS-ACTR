@@ -7,17 +7,17 @@
 
 (defun object-tracking () ;; old style with a screen object
   
-  (reset)
-  (let* ((window (open-exp-window "Moving X" :visible t))
-         (letter (add-text-to-exp-window :text "x" :x 10 :y 150)))
+   (reset)
+   (let* ((window (open-exp-window "Moving X" :visible t))
+          (letter (add-text-to-exp-window :text "x" :x 10 :y 150)))
     
-    (if (not (subtypep (type-of window) 'virtual-window))
-        (print-warning "This example only works correctly for virtual and visible-virtual windows because the x coordinate accessor is specific to those objects.")
+      (if (not (subtypep (type-of window) 'virtual-window))
+         (print-warning "This example only works correctly for virtual and visible-virtual windows because the x coordinate accessor is specific to those objects.")
       
-      (progn
-        (install-device window)
-        (proc-display)
-        (schedule-periodic-event .5 #'(lambda () 
+         (progn
+            (install-device window)
+            (proc-display)
+            (schedule-periodic-event .5 #'(lambda () 
                                          
                                         ;; Virtual dialog item specific coordinate moving
                                         ;; code.  Code for real windows is different for each
@@ -26,10 +26,10 @@
                                         (setf (x-pos letter) (+ 10 (x-pos letter)))
                                         
                                         (proc-display))
-                                 :details "moving object"
-                                 :initial-delay 1.0)
+                                   :details "moving object"
+                                   :initial-delay 0.5)
         
-        (run 3)))))
+            (run 3 :real-time t)))))
 
 
 
@@ -38,57 +38,57 @@
 ;;; First define the normal methods for a simple list based device.
 
 (defmethod device-move-cursor-to ((device list) loc)
-  ;; ignore model's mouse move requests
-  nil)
+   ;; ignore model's mouse move requests
+   nil)
 
 (defmethod get-mouse-coordinates ((device list))
-  ;; always return the same location for the mouse
-  (vector 0 0))
+   ;; always return the same location for the mouse
+   (vector 0 0))
 
 (defmethod device-handle-click ((device list))
-  ;; ignore a mouse click
- nil)
+   ;; ignore a mouse click
+   nil)
 
 (defmethod device-handle-keypress ((device list) key)
-  ;; ignore key presses
-  nil)
+   ;; ignore key presses
+   nil)
 
 (defmethod device-speak-string ((device list) string)
-  ;; ignore model's speech output
-  nil)
+   ;; ignore model's speech output
+   nil)
 
 
 (defmethod cursor-to-vis-loc ((device list))
-  nil)
+   nil)
 
 
 (defmethod build-vis-locs-for ((device list) vis-mod)
-  ;; just return the cars from all the sublists
-  (mapcar 'car device))
+   ;; just return the cars from all the sublists
+   (mapcar 'car device))
 
 
 (defmethod vis-loc-to-obj ((device list) vis-loc)
-  ;; here we're just returning the pregenerated object from the list
-  (cdr (assoc vis-loc device)))
+   ;; here we're just returning the pregenerated object from the list
+   (cdr (assoc vis-loc device)))
 
 
 
 (defun chunk-based-tracking ()
   
-  ;; Start by resetting the model.
+   ;; Start by resetting the model.
   
-  (reset)
+   (reset)
   
-  ;; When the device returns the same chunks, but with different values
-  ;; the :test-feats parameter must be set to nil otherwise the module
-  ;; will consider moved chunks to be separate visual items.
+   ;; When the device returns the same chunks, but with different values
+   ;; the :test-feats parameter must be set to nil otherwise the module
+   ;; will consider moved chunks to be separate visual items.
   
-  (sgp :test-feats nil)
+   (sgp :test-feats nil)
   
   
-  ;; First create the visual-location chunk
+   ;; First create the visual-location chunk
   
-  (let* ((visual-location-chunks (define-chunks 
+   (let* ((visual-location-chunks (define-chunks 
                                      (isa visual-location screen-x 15 screen-y 20 kind text value text height 10 width 40 color blue)))
          
          ;;; and the visual-object chunk
@@ -98,17 +98,17 @@
          
          (the-device (pairlis visual-location-chunks visual-object-chunks)))
     
-    ;; make that the current device for the model
+      ;; make that the current device for the model
     
-    (install-device the-device)
+      (install-device the-device)
     
-    ;; process the display 
+      ;; process the display 
     
-    (proc-display)
+      (proc-display)
     
-    ;; schedule an event to move the item
+      ;; schedule an event to move the item
     
-    (schedule-periodic-event .5 #'(lambda () 
+      (schedule-periodic-event .5 #'(lambda () 
                                     (let* ((c (car visual-location-chunks))
                                            (x (chunk-slot-value-fct c 'screen-x)))
                                       
@@ -122,8 +122,8 @@
                                  :details "moving object"
                                  :initial-delay 1.0)
     
-    ;; run the model
-    (run 3)))
+      ;; run the model
+      (run 3)))
 
 
 
@@ -133,14 +133,45 @@
 
 (define-model simple-tracking
 
-    (sgp :v t :needs-mouse nil :show-focus t :trace-detail high)
+   (sgp :v t :needs-mouse nil :show-focus t :trace-detail high)
+   (chunk-type track-follow state)
+
+   (add-dm (track isa chunk) (attend-letter isa chunk)
+      (goal isa track-follow state track))
   
-  ;; adding this setting to the model will avoid the deleted chunk
-  ;; warnings in the object tracking case.
-  ;; (sgp :delete-visicon-chunks nil)
+   ;; adding this setting to the model will avoid the deleted chunk
+   ;; warnings in the object tracking case.
+   ;; (sgp :delete-visicon-chunks nil)
   
+(P find-letter
+   =goal>
+      ISA         track-follow
+      state       track
+   ?visual>
+      state       free
+   =visual-location>
+      ISA         visual-location
+==>
+   +visual-location>
+      ISA         visual-location
+      :attended   nil
+   =goal>
+      state       attend-letter
+)
+(P on-move
+   =goal>
+      ISA         track-follow
+      state       track
+   ?visual>
+      state       error
+==>
+   +visual>
+      ISA         clear
+)
 (P found-letter
-   
+   =goal>
+      ISA         track-follow
+      state       attend-letter
    =visual-location>
       ISA         visual-location
    
@@ -151,28 +182,40 @@
    +visual>
       ISA         move-attention
       screen-pos  =visual-location
+   =goal>
+      state       track
 )
 
-(P track-letter
-   =visual>
-      ISA         visual-object
-      value       =letter
-   ?visual>
-      state       free
-   ==>
-   +visual>
-      isa         start-tracking
-)
+;(P track-letter
+;   =goal>
+;      ISA         track-follow
+;      state       track
+;==>
+;   =goal>
+;      state       track
+;)
+;(P track-letter
+;   =visual>
+;      ISA         visual-object
+;      value       =letter
+;   ?visual>
+;      state       free
+;   ==>
+;   +visual>
+;      isa         start-tracking
+;)
 
-(p report
-   =visual-location>
-      isa         visual-location
-      screen-x    =x
-      screen-y    =y
-   =visual>
-      isa         visual-object
-      value       =letter
-   ==>
-   !output! (The =letter is at =x =y)
-   )
+;(p report
+;   =visual-location>
+;      isa         visual-location
+;      screen-x    =x
+;      screen-y    =y
+;   =visual>
+;      isa         visual-object
+;      value       =letter
+;   ==>
+;   !output! (The =letter is at =x =y)
+;)
+
+(goal-focus goal)
 )
